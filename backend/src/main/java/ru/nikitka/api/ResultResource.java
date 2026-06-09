@@ -12,6 +12,7 @@ import ru.nikitka.ejb.ResultService;
 import ru.nikitka.ejb.UserService;
 import ru.nikitka.model.entity.ResultEntity;
 import ru.nikitka.model.entity.UserEntity;
+import ru.nikitka.validation.AreaCheckValidator;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -54,16 +55,12 @@ public class ResultResource {
         double y = req.getY();
         double r = req.getR();
 
-        if (!isValidRange(x, y, r)) {
+        if (!AreaCheckValidator.isValidRange(x, y, r)) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Validation failed").build();
         }
 
         ResultEntity saved = resultService.save(x, y, r, user);
         return Response.ok(toDto(saved)).build();
-    }
-
-    private boolean isValidRange(double x, double y, double r) {
-        return x >= -3 && x <= 5 && y >= -3 && y <= 3 && r >= 1 && r <= 5;
     }
 
     private ResultDto toDto(ResultEntity entity) {
@@ -83,4 +80,3 @@ public class ResultResource {
         return userService.findById(userId).orElse(null);
     }
 }
-
