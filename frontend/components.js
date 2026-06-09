@@ -36,7 +36,7 @@ function FormPreview({form}) {
   );
 }
 
-function FloatingInput({value, onChange, placeholder, type = "text", autoComplete, maxLength}) {
+function FloatingInput({value, onChange, placeholder, type = "text", autoComplete, maxLength, dataTestId}) {
   const [focused, setFocused] = useState(false);
   const strValue = value != null ? String(value) : "";
   const hasValue = strValue.trim().length > 0;
@@ -53,6 +53,7 @@ function FloatingInput({value, onChange, placeholder, type = "text", autoComplet
           type={type}
           autoComplete={autoComplete}
           maxLength={maxLength}
+          data-testid={dataTestId}
         />
         <label className={`floating-label ${isFloating ? "floating" : ""}`}>
           {placeholder}
@@ -104,6 +105,7 @@ function StartPage() {
               placeholder="username"
               autoComplete="username"
               type="text"
+              dataTestId="username-input"
             />
           </div>
           <div className="field">
@@ -113,10 +115,12 @@ function StartPage() {
               placeholder="password"
               autoComplete="current-password"
               type="password"
+              dataTestId="password-input"
             />
           </div>
           {auth.error && <div className="error">{auth.error}</div>}
           <button className="btn" type="submit" disabled={auth.loading}
+                  data-testid={mode === "login" ? "login-button" : "register-button"}
                   onClick={(e) => {
                     if (!auth.loading) createRipple(e);
                   }}>
@@ -128,6 +132,7 @@ function StartPage() {
                     "Нет аккаунта? ",
                     React.createElement("a", {
                       href: "#",
+                      "data-testid": "switch-to-register",
                       onClick: e => { e.preventDefault(); setMode("register"); }
                     }, "Зарегистрироваться")
                 )
@@ -136,6 +141,7 @@ function StartPage() {
                     "Есть аккаунт? ",
                     React.createElement("a", {
                       href: "#",
+                      "data-testid": "switch-to-login",
                       onClick: e => { e.preventDefault(); setMode("login"); }
                     }, "Войти")
                 )
@@ -192,13 +198,13 @@ function MainPage() {
             <div className="mode">Режим: {mode}</div>
           </div>
           <Controls form={form}/>
-          <button className="btn" onClick={(e) => {
+          <button className="btn" data-testid="check-button" onClick={(e) => {
             createRipple(e);
             onSubmit();
           }} disabled={!isFormValid(form)}>Проверить</button>
           <div className="logout">
             <div className="status"><span className="dot"/> {user}</div>
-            <button className="btn btn-ghost" onClick={(e) => {
+            <button className="btn btn-ghost" data-testid="logout-button" onClick={(e) => {
               createRipple(e);
               logout();
             }}>Выйти</button>
@@ -228,6 +234,7 @@ function Controls({form}) {
             {xValues.map(v => (
                 <button key={v}
                         type="button"
+                        data-testid={`x-button-${v}`}
                         className={["btn-pill", form.x === v ? "active" : ""].join(" ")}
                         onClick={(e) => {
                           createRipple(e);
@@ -245,6 +252,7 @@ function Controls({form}) {
             onChange={e => dispatch(actions.formSet({y: e.target.value}))}
             placeholder="y"
             type="text"
+            dataTestId="y-input"
           />
           {!isYValid(form.y) && <div className="error">Введите число от -3 до 3</div>}
         </div>
@@ -253,6 +261,7 @@ function Controls({form}) {
             {rValues.map(v => (
                 <button key={v}
                         type="button"
+                        data-testid={`r-button-${v}`}
                         className={["btn-pill", form.r === v ? "active" : ""].join(" ")}
                         onClick={(e) => {
                           createRipple(e);
@@ -444,6 +453,7 @@ function CanvasPanel({r, results, onClickCanvas}) {
           onClick={onClick}
           onMouseMove={onMouseMove}
           onMouseLeave={onMouseLeave}
+          data-testid="area-canvas"
           style={{cursor: "crosshair"}}
         />
       </div>
@@ -452,11 +462,11 @@ function CanvasPanel({r, results, onClickCanvas}) {
 
 function ResultsTable({results}) {
   if (!results.length) {
-    return <div className="muted">Пока нет проверок</div>;
+    return <div className="muted" data-testid="results-table-empty">Пока нет проверок</div>;
   }
   return (
-      <div style={{overflowX: "auto"}}>
-        <table>
+      <div style={{overflowX: "auto"}} data-testid="results-table-wrapper">
+        <table data-testid="results-table">
           <thead>
           <tr>
             <th>X</th><th>Y</th><th>R</th><th>Статус</th><th>Время</th>
