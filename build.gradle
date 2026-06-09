@@ -6,3 +6,78 @@ allprojects {
     group = 'ru.nikitka'
     version = '1.0.0-SNAPSHOT'
 }
+
+def functionalTestsDir = layout.projectDirectory.dir('functional-tests').asFile
+
+def waitForHttp = { String url, List<Integer> expectedCodes ->
+    def deadline = System.currentTimeMillis() + 180000
+    while (System.currentTimeMillis() < deadline) {
+        HttpURLConnection connection = null
+        try {
+            connection = new URI(url).toURL().openConnection() as HttpURLConnection
+            connection.connectTimeout = 2000
+            connection.readTimeout = 2000
+            connection.requestMethod = 'GET'
+            int code = connection.responseCode
+            if (expectedCodes.contains(code)) {
+                return
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (connection != null) {
+                connection.disconnect()
+            }
+        }
+        sleep(2000)
+    }
+    throw new GradleException("Timed out waiting for ${url}")
+}
+
+tasks.register('dockerBuild', Exec) {
+    group = 'docker'
+    description = 'Builds Docker images for all services.'
+    commandLine 'docker', 'compose', 'build'
+}
+
+tasks.register('dockerUp', Exec) {
+    group = 'docker'
+    description = 'Starts the application with Docker Compose.'
+    dependsOn tasks.named('dockerBuild')
+    commandLine 'docker', 'compose', 'up', '-d'
+}
+
+tasks.register('dockerDown', Exec) {
+    group = 'docker'
+    description = 'Stops Docker Compose services.'
+    commandLine 'docker', 'compose', 'down'
+}
+
+tasks.register('functionalTestInstall', Exec) {
+    group = 'verification'
+    description = 'Installs Playwright test dependencies.'
+    workingDir functionalTestsDir
+    commandLine 'npm', 'ci'
+    inputs.files(
+            file('functional-tests/package.json'),
+            file('functional-tests/package-lock.json')
+    )
+    outputs.dir file('functional-tests/node_modules')
+}
+
+tasks.register('functionalTest', Exec) {
+    group = 'verification'
+    description = 'Runs Playwright functional tests against Docker Compose application.'
+    dependsOn tasks.named('functionalTestInstall'), tasks.named('dockerUp')
+    finalizedBy tasks.named('dockerDown')
+    workingDir functionalTestsDir
+    commandLine 'npm', 'test'
+    environment 'APP_URL', 'http://localhost:3000'
+    doFirst {
+        waitForHttp('http://localhost:3000', [200])
+        waitForHttp('http://localhost:8080/jsf-area-check-backend/api/auth/me', [401])
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('functionalTest')
+}
