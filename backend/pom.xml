@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>ru.youruniversity</groupId>
+  <artifactId>jsf-area-check-backend</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>war</packaging>
+
+  <name>JSF Area Check Backend</name>
+  <description>REST API backend: check point hit/miss — compatible with WildFly 38 (Jakarta EE 10)</description>
+
+  <properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <jakarta.platform.version>10.0.0</jakarta.platform.version>
+
+    <finalName>${project.artifactId}</finalName>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>jakarta.platform</groupId>
+        <artifactId>jakarta.jakartaee-api</artifactId>
+        <version>${jakarta.platform.version}</version>
+        <scope>provided</scope>
+      </dependency>
+
+      <!-- Jakarta Activation API is provided by the application server (WildFly),
+           so mark it as provided to avoid packaging conflicts when building WAR. -->
+      <dependency>
+        <groupId>jakarta.activation</groupId>
+        <artifactId>jakarta.activation-api</artifactId>
+        <version>2.1.0</version>
+        <scope>provided</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>jakarta.platform</groupId>
+      <artifactId>jakarta.jakartaee-api</artifactId>
+      <version>${jakarta.platform.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.7</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mindrot</groupId>
+      <artifactId>jbcrypt</artifactId>
+      <version>0.4</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>5.10.0</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.oracle.database.jdbc</groupId>
+      <artifactId>ojdbc11</artifactId>
+      <version>23.4.0.24.05</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jooq</groupId>
+      <artifactId>jooq</artifactId>
+      <version>3.19.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.jooq</groupId>
+      <artifactId>jooq-meta</artifactId>
+      <version>3.19.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.jooq</groupId>
+      <artifactId>jooq-codegen</artifactId>
+      <version>3.19.1</version>
+      <scope>provided</scope>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <finalName>${finalName}</finalName>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
+        <configuration>
+          <source>${maven.compiler.source}</source>
+          <target>${maven.compiler.target}</target>
+          <encoding>${project.build.sourceEncoding}</encoding>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.jooq</groupId>
+        <artifactId>jooq-codegen-maven</artifactId>
+        <version>3.19.1</version>
+        <executions>
+          <execution>
+            <id>jooq-codegen</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <skip>true</skip>
+          <jdbc>
+            <driver>oracle.jdbc.OracleDriver</driver>
+            <url>jdbc:oracle:thin:@localhost:1521/FREEPDB1</url>
+            <user>STUDENT</user>
+            <password>password</password>
+          </jdbc>
+          <generator>
+            <database>
+              <name>org.jooq.meta.oracle.OracleDatabase</name>
+              <includes>RESULTS|USERS</includes>
+              <inputSchema>STUDENT</inputSchema>
+              <outputSchemaToDefault>true</outputSchemaToDefault>
+            </database>
+            <target>
+              <packageName>ru.nikitka.jooq</packageName>
+              <directory>${project.basedir}/src/main/java</directory>
+            </target>
+            <generate>
+              <pojos>false</pojos>
+              <interfaces>false</interfaces>
+              <daos>false</daos>
+              <fluentSetters>true</fluentSetters>
+            </generate>
+          </generator>
+        </configuration>
+        <dependencies>
+          <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc11</artifactId>
+            <version>23.4.0.24.05</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>with-local-ojdbc</id>
+      <activation>
+        <property>
+          <name>withLocalOjdbc</name>
+          <value>true</value>
+        </property>
+      </activation>
+    </profile>
+    <profile>
+      <id>generate-jooq</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jooq</groupId>
+            <artifactId>jooq-codegen-maven</artifactId>
+            <configuration>
+              <skip>false</skip>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>

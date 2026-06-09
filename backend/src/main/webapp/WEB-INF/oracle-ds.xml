@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<datasources xmlns="http://www.jboss.org/ironjacamar/schema"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.jboss.org/ironjacamar/schema http://docs.jboss.org/ironjacamar/schema/datasources_1_0.xsd">
+    <datasource
+            jndi-name="java:/OracleDS"
+            pool-name="OracleDS"
+            enabled="true"
+            use-java-context="true"
+            use-ccm="true">
+        <connection-url>jdbc:oracle:thin:@oracle-db:1521/FREEPDB1</connection-url>
+        <driver>jsf-area-check-backend.war_oracle.jdbc.OracleDriver_23_4</driver>
+        <driver-class>oracle.jdbc.OracleDriver</driver-class>
+        <security>
+            <user-name>STUDENT</user-name>
+            <password>password</password>
+        </security>
+        <validation>
+            <check-valid-connection-sql>SELECT 1 FROM DUAL</check-valid-connection-sql>
+            <background-validation>true</background-validation>
+            <background-validation-millis>30000</background-validation-millis>
+        </validation>
+    </datasource>
+</datasources>

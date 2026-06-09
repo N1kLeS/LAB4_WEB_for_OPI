@@ -1,0 +1,13 @@
+{
+  "name": "jsf-area-check-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for Area Check application",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "http-proxy-middleware": "^2.0.6"
+  }
+}
