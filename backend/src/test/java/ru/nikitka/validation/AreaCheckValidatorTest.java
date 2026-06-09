@@ -19,12 +19,8 @@ class AreaCheckValidatorTest {
     }
 
     @Test
-    void rejectsXBelowMin() {
+    void rejectsXOutsideRange() {
         assertFalse(AreaCheckValidator.isValidRange(-3.1, 0.0, 2.0));
-    }
-
-    @Test
-    void rejectsXAboveMax() {
         assertFalse(AreaCheckValidator.isValidRange(5.1, 0.0, 2.0));
     }
 

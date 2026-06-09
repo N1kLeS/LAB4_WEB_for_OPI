@@ -11,11 +11,11 @@ services:
       - oracle-data:/opt/oracle/oradata
       - ./backend/db-init:/container-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "echo 'SELECT 1 FROM DUAL;' | sqlplus -s APP_USER/password@localhost:1521/FREEPDB1"]
+      test: ["CMD-SHELL", "printf \"SET HEADING OFF FEEDBACK OFF VERIFY OFF ECHO OFF\\nSELECT 'READY' FROM DUAL;\\nEXIT;\\n\" | sqlplus -s -L STUDENT/password@localhost:1521/FREEPDB1 | grep -q READY"]
       interval: 30s
       timeout: 10s
       retries: 10
-      start_period: 90s
+      start_period: 120s
 
   backend:
     build:
