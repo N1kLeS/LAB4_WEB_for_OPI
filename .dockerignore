@@ -1,0 +1,17 @@
+.git
+.gradle
+build
+target
+dist
+out
+frontend
+functional-tests
+docs
+.idea
+*.iml
+.DS_Store
+__MACOSX
+.env
+.env.local
+backend/build
+backend/target

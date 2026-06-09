@@ -1,9 +1,6 @@
-version: "3.9"
-
 services:
   db:
     image: gvenzl/oracle-free:slim
-    container_name: oracle-db
     environment:
       ORACLE_PASSWORD: password
       APP_USER: STUDENT
@@ -12,7 +9,7 @@ services:
       - "1521:1521"
     volumes:
       - oracle-data:/opt/oracle/oradata
-      - ./db-init:/container-entrypoint-initdb.d
+      - ./backend/db-init:/container-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "echo 'SELECT 1 FROM DUAL;' | sqlplus -s APP_USER/password@localhost:1521/FREEPDB1"]
       interval: 30s
@@ -21,22 +18,17 @@ services:
       start_period: 90s
 
   backend:
-    build: ./backend
-    container_name: jsf-area-check-backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     depends_on:
       db:
         condition: service_healthy
     ports:
       - "8080:8080"
-    environment:
-      JAVA_OPTS: >
-        -DDB_URL=jdbc:oracle:thin:@oracle-db:1521/FREEPDB1
-        -DDB_USER=STUDENT
-        -DDB_PASS=password
 
   frontend:
     build: ./frontend
-    container_name: jsf-area-check-frontend
     ports:
       - "3000:3000"
     environment:

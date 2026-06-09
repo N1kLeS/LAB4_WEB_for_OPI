@@ -1,0 +1,29 @@
+plugins {
+    id 'base'
+}
+
+def requiredFrontendFiles = files(
+        'package.json',
+        'server.js',
+        'app.js',
+        'api.js',
+        'components.js',
+        'hooks.js',
+        'store.js',
+        'resources/styles.css'
+)
+
+tasks.register('checkFrontend') {
+    inputs.files(requiredFrontendFiles)
+    doLast {
+        requiredFrontendFiles.files.each { file ->
+            if (!file.exists()) {
+                throw new GradleException("Missing frontend file: ${file}")
+            }
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('checkFrontend')
+}

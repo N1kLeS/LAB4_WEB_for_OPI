@@ -8,7 +8,7 @@
             enabled="true"
             use-java-context="true"
             use-ccm="true">
-        <connection-url>jdbc:oracle:thin:@oracle-db:1521/FREEPDB1</connection-url>
+        <connection-url>jdbc:oracle:thin:@db:1521/FREEPDB1</connection-url>
         <driver>jsf-area-check-backend.war_oracle.jdbc.OracleDriver_23_4</driver>
         <driver-class>oracle.jdbc.OracleDriver</driver-class>
         <security>
