@@ -12,7 +12,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'WEBLAB333'
+rootProject.name = providers.gradleProperty('appName').get()
 
-include 'backend'
-include 'frontend'
+include providers.gradleProperty('backendDir').get()
+include providers.gradleProperty('frontendDir').get()

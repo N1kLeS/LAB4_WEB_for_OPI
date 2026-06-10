@@ -8,15 +8,20 @@ build/
 target/
 dist/
 out/
+backend/build/
 backend/bin/
 
 node_modules/
 npm-debug.log*
+npm-debug.log
+functional-tests/node_modules/
 yarn-debug.log*
 yarn-error.log*
 
 playwright-report/
 test-results/
+functional-tests/playwright-report/
+functional-tests/test-results/
 coverage/
 
 .env

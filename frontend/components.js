@@ -118,7 +118,7 @@ function StartPage() {
               dataTestId="password-input"
             />
           </div>
-          {auth.error && <div className="error" data-testid="auth-error">{auth.error}</div>}
+          {auth.error && <div className="error" data-testid="auth-error"><span data-testid="error-message">{auth.error}</span></div>}
           <button className="btn" type="submit" disabled={auth.loading}
                   data-testid={mode === "login" ? "login-button" : "register-button"}
                   onClick={(e) => {
@@ -254,7 +254,7 @@ function Controls({form}) {
             type="text"
             dataTestId="y-input"
           />
-          {!isYValid(form.y) && <div className="error" data-testid="y-error">Введите число от -3 до 3</div>}
+          {!isYValid(form.y) && <div className="error" data-testid="y-error"><span data-testid="error-message">Введите число от -3 до 3</span></div>}
         </div>
         <div className="field">
           <div className="pill-group">

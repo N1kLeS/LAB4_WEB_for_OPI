@@ -16,3 +16,5 @@ __MACOSX
 backend/build
 backend/target
 backend/bin
+buildSrc/build
+buildSrc/.gradle

@@ -1,0 +1,62 @@
+def functionalTestsPath = rootProject.ext.functionalTestsPath
+def functionalTestsDir = rootProject.ext.functionalTestsDir
+def frontendUrl = rootProject.ext.frontendUrl
+def backendHealthUrl = rootProject.ext.backendHealthUrl
+def runCommandIn = rootProject.ext.runCommandIn
+def waitForHttp = rootProject.ext.waitForHttp
+
+def installFunctionalTestDependencies = {
+    def npmOutput = runCommandIn(functionalTestsDir, ['npm', 'ci'])
+    if (npmOutput.trim()) {
+        println npmOutput
+    }
+    def playwrightOutput = runCommandIn(functionalTestsDir, ['npx', 'playwright', 'install', 'chromium'])
+    if (playwrightOutput.trim()) {
+        println playwrightOutput
+    }
+}
+
+tasks.register('functionalTestInstall') {
+    group = 'verification'
+    description = 'Installs Playwright dependencies and Chromium browser.'
+    inputs.files(
+            file("${functionalTestsPath}/package.json"),
+            file("${functionalTestsPath}/package-lock.json")
+    )
+    outputs.dir file("${functionalTestsPath}/node_modules")
+    outputs.upToDateWhen { false }
+    doLast {
+        installFunctionalTestDependencies()
+    }
+}
+
+def functionalTestTask = tasks.register('functionalTest') {
+    group = 'verification'
+    description = 'Runs Playwright functional tests against Docker Compose application.'
+    inputs.files(
+            file("${functionalTestsPath}/package.json"),
+            file("${functionalTestsPath}/package-lock.json"),
+            fileTree("${functionalTestsPath}/tests")
+    )
+    outputs.upToDateWhen { false }
+    doLast {
+        waitForHttp(frontendUrl, [200])
+        waitForHttp(backendHealthUrl, [401])
+        installFunctionalTestDependencies()
+        def testOutput = runCommandIn(functionalTestsDir, ['npm', 'test'], ['APP_URL': frontendUrl])
+        if (testOutput.trim()) {
+            println testOutput
+        }
+    }
+}
+
+pluginManager.withPlugin('weblab.docker') {
+    functionalTestTask.configure {
+        dependsOn tasks.named('dockerUp')
+        finalizedBy tasks.named('dockerDown')
+    }
+}
+
+tasks.named('check') {
+    dependsOn functionalTestTask
+}

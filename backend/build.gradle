@@ -3,14 +3,16 @@ plugins {
     id 'war'
 }
 
+def javaVersionValue = providers.gradleProperty('javaVersion').get().toInteger()
+
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.toVersion(javaVersionValue)
+    targetCompatibility = JavaVersion.toVersion(javaVersionValue)
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.release = 17
+    options.release = javaVersionValue
 }
 
 dependencies {
@@ -34,5 +36,5 @@ tasks.named('test') {
 }
 
 tasks.named('war') {
-    archiveFileName = 'jsf-area-check-backend.war'
+    archiveFileName = providers.gradleProperty('backendWarName').get()
 }

@@ -2,7 +2,8 @@ FROM gradle:8.10.2-jdk17 AS build
 
 WORKDIR /app
 
-COPY settings.gradle build.gradle ./
+COPY settings.gradle build.gradle gradle.properties ./
+COPY buildSrc buildSrc
 COPY backend/build.gradle backend/build.gradle
 
 RUN gradle :backend:dependencies --no-daemon

@@ -1,0 +1,172 @@
+ext.appName = providers.gradleProperty('appName').get()
+ext.appVersion = providers.gradleProperty('appVersion').get()
+ext.appGroup = providers.gradleProperty('appGroup').get()
+ext.javaVersion = providers.gradleProperty('javaVersion').orElse('17').get()
+ext.backendDir = providers.gradleProperty('backendDir').get()
+ext.frontendDir = providers.gradleProperty('frontendDir').get()
+ext.functionalTestsPath = providers.gradleProperty('functionalTestsDir').get()
+ext.frontendUrl = providers.gradleProperty('frontendUrl').get()
+ext.backendHealthUrl = providers.gradleProperty('backendHealthUrl').get()
+ext.musicFilePath = providers.gradleProperty('musicFile').get()
+ext.scpHost = providers.gradleProperty('scpHost').orElse('').get()
+ext.scpUser = providers.gradleProperty('scpUser').orElse('').get()
+ext.scpPath = providers.gradleProperty('scpPath').orElse('').get()
+ext.scpIdentity = providers.gradleProperty('scpIdentity').orElse('').get()
+ext.altClassFrom = providers.gradleProperty('altClassFrom').get()
+ext.altClassTo = providers.gradleProperty('altClassTo').get()
+ext.altUserServiceFrom = providers.gradleProperty('altUserServiceFrom').get()
+ext.altUserServiceTo = providers.gradleProperty('altUserServiceTo').get()
+ext.historyRevisionCount = providers.gradleProperty('historyRevisionCount').orElse('5').get().toInteger()
+ext.teamRevisionCount = providers.gradleProperty('teamRevisionCount').orElse('4').get().toInteger()
+ext.diffAutoCommit = providers.gradleProperty('diffAutoCommit').orElse('false').get().toBoolean()
+ext.diffCommitMessage = providers.gradleProperty('diffCommitMessage').orElse('Record class diff').get()
+ext.reportAutoCommit = providers.gradleProperty('reportAutoCommit').orElse('false').get().toBoolean()
+ext.reportCommitMessage = providers.gradleProperty('reportCommitMessage').orElse('Add JUnit XML report').get()
+ext.envJavaVersions = providers.gradleProperty('envJavaVersions').orElse(rootProject.ext.javaVersion.toString()).get()
+ext.envJvmArgs = providers.gradleProperty('envJvmArgs').orElse('').get()
+ext.envCheckTasks = providers.gradleProperty('envCheckTasks').orElse('compile,test').get()
+
+ext.functionalTestsDir = layout.projectDirectory.dir(rootProject.ext.functionalTestsPath).asFile
+ext.musicFile = layout.projectDirectory.file(rootProject.ext.musicFilePath).asFile
+ext.projectCopyExcludes = [
+        '.git/**',
+        '.gradle/**',
+        '.idea/**',
+        '**/*.iml',
+        '**/build/**',
+        '**/bin/**',
+        '**/target/**',
+        '**/node_modules/**',
+        '**/playwright-report/**',
+        '**/test-results/**',
+        '**/__MACOSX/**'
+]
+
+ext.runCommandResultIn = { File directory, List command, Map environment = [:] ->
+    def normalizedCommand = command.collect { it.toString() }
+    def processBuilder = new ProcessBuilder(normalizedCommand)
+            .directory(directory)
+            .redirectErrorStream(true)
+    environment.each { key, value ->
+        processBuilder.environment().put(key.toString(), value.toString())
+    }
+    def process = processBuilder.start()
+    def output = process.inputStream.getText('UTF-8')
+    def exitCode = process.waitFor()
+    [exitCode: exitCode, output: output, command: normalizedCommand.join(' ')]
+}
+
+ext.runCommandResult = { List command ->
+    rootProject.ext.runCommandResultIn(projectDir, command)
+}
+
+ext.runCommand = { List command ->
+    def result = rootProject.ext.runCommandResult(command)
+    if (result.exitCode != 0) {
+        throw new RuntimeException("Command failed (${result.exitCode}): ${result.command}\n${result.output}")
+    }
+    result.output
+}
+
+ext.runCommandIn = { File directory, List command, Map environment = [:] ->
+    def result = rootProject.ext.runCommandResultIn(directory, command, environment)
+    if (result.exitCode != 0) {
+        throw new RuntimeException("Command failed (${result.exitCode}): ${result.command}\n${result.output}")
+    }
+    result.output
+}
+
+ext.gradleCommandFor = { File directory ->
+    new File(directory, 'gradlew').exists() ? ['./gradlew'] : ['gradle']
+}
+
+ext.copyCleanProjectTo = { File targetDir ->
+    delete targetDir
+    copy {
+        from(projectDir) {
+            exclude rootProject.ext.projectCopyExcludes
+        }
+        into targetDir
+    }
+}
+
+ext.gitRevisions = { List args ->
+    rootProject.ext.runCommand(['git', 'log'] + args).readLines().collect { it.trim() }.findAll { it }
+}
+
+ext.removeWorktree = { File worktreeDir ->
+    if (worktreeDir.exists()) {
+        rootProject.ext.runCommandResult(['git', 'worktree', 'remove', '--force', worktreeDir.absolutePath])
+    }
+}
+
+ext.runRevisionBuild = { File worktreeDir, List tasksToRun ->
+    def command = rootProject.ext.gradleCommandFor(worktreeDir) + tasksToRun + ['--no-daemon']
+    rootProject.ext.runCommandResultIn(worktreeDir, command)
+}
+
+ext.writeText = { File file, String text ->
+    file.parentFile.mkdirs()
+    file.text = text
+}
+
+ext.changedPathFromStatusLine = { String line ->
+    if (line.length() <= 3) {
+        return line.trim()
+    }
+    line.substring(3).trim().replaceAll(/^"|"$/, '')
+}
+
+ext.fileDigest = { File file, String algorithm ->
+    def messageDigest = java.security.MessageDigest.getInstance(algorithm)
+    file.withInputStream { input ->
+        byte[] buffer = new byte[8192]
+        int read = input.read(buffer)
+        while (read != -1) {
+            messageDigest.update(buffer, 0, read)
+            read = input.read(buffer)
+        }
+    }
+    messageDigest.digest().collect { byteValue ->
+        String.format('%02x', byteValue & 0xff)
+    }.join()
+}
+
+ext.waitForHttp = { String url, List<Integer> expectedCodes ->
+    def deadline = System.currentTimeMillis() + 180000
+    while (System.currentTimeMillis() < deadline) {
+        HttpURLConnection connection = null
+        try {
+            connection = new URI(url).toURL().openConnection() as HttpURLConnection
+            connection.connectTimeout = 2000
+            connection.readTimeout = 2000
+            connection.requestMethod = 'GET'
+            int code = connection.responseCode
+            if (expectedCodes.contains(code)) {
+                return
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (connection != null) {
+                connection.disconnect()
+            }
+        }
+        sleep(2000)
+    }
+    throw new RuntimeException("Timed out waiting for ${url}")
+}
+
+tasks.named('build') {
+    dependsOn ":${rootProject.ext.backendDir}:build", ":${rootProject.ext.frontendDir}:build"
+}
+
+tasks.named('clean') {
+    delete "${rootProject.ext.functionalTestsPath}/playwright-report"
+    delete "${rootProject.ext.functionalTestsPath}/test-results"
+}
+
+tasks.register('test') {
+    group = 'verification'
+    description = 'Runs backend unit tests.'
+    dependsOn ":${rootProject.ext.backendDir}:test"
+}

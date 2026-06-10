@@ -1,0 +1,476 @@
+def appName = rootProject.ext.appName
+def appVersion = rootProject.ext.appVersion
+def backendDir = rootProject.ext.backendDir
+def frontendDir = rootProject.ext.frontendDir
+def projectCopyExcludes = rootProject.ext.projectCopyExcludes
+def musicFile = rootProject.ext.musicFile
+def scpHost = rootProject.ext.scpHost
+def scpUser = rootProject.ext.scpUser
+def scpPath = rootProject.ext.scpPath
+def scpIdentity = rootProject.ext.scpIdentity
+def altClassFrom = rootProject.ext.altClassFrom
+def altClassTo = rootProject.ext.altClassTo
+def altUserServiceFrom = rootProject.ext.altUserServiceFrom
+def altUserServiceTo = rootProject.ext.altUserServiceTo
+def historyRevisionCount = rootProject.ext.historyRevisionCount
+def teamRevisionCount = rootProject.ext.teamRevisionCount
+def diffAutoCommit = rootProject.ext.diffAutoCommit
+def diffCommitMessage = rootProject.ext.diffCommitMessage
+def reportAutoCommit = rootProject.ext.reportAutoCommit
+def reportCommitMessage = rootProject.ext.reportCommitMessage
+def envJavaVersions = rootProject.ext.envJavaVersions
+def envJvmArgs = rootProject.ext.envJvmArgs
+def envCheckTasks = rootProject.ext.envCheckTasks
+def runCommandResultIn = rootProject.ext.runCommandResultIn
+def runCommandResult = rootProject.ext.runCommandResult
+def runCommand = rootProject.ext.runCommand
+def copyCleanProjectTo = rootProject.ext.copyCleanProjectTo
+def gitRevisions = rootProject.ext.gitRevisions
+def removeWorktree = rootProject.ext.removeWorktree
+def runRevisionBuild = rootProject.ext.runRevisionBuild
+def writeText = rootProject.ext.writeText
+def changedPathFromStatusLine = rootProject.ext.changedPathFromStatusLine
+def fileDigest = rootProject.ext.fileDigest
+
+tasks.register('compile') {
+    group = 'build'
+    description = 'Compiles backend sources and checks frontend sources.'
+    dependsOn ":${backendDir}:classes", ":${frontendDir}:checkFrontend"
+}
+
+tasks.register('xml') {
+    group = 'verification'
+    description = 'Validates XML files in the project.'
+    def xmlFiles = fileTree(projectDir) {
+        include '**/*.xml'
+        exclude projectCopyExcludes
+    }
+    inputs.files(xmlFiles)
+    doLast {
+        def files = xmlFiles.files.toList()
+        def factory = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+        factory.setNamespaceAware(true)
+        files.each { file ->
+            factory.newDocumentBuilder().parse(file)
+        }
+        println "Validated ${files.size()} XML file(s)."
+    }
+}
+
+tasks.register('music', Exec) {
+    group = 'lab'
+    description = 'Plays a sound after build.'
+    dependsOn tasks.named('build')
+    onlyIf {
+        musicFile.exists() && System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('mac')
+    }
+    commandLine 'afplay', musicFile.absolutePath
+}
+
+tasks.register('native2ascii') {
+    group = 'conversion'
+    description = 'Converts properties files to ASCII copies.'
+    def propertiesFiles = fileTree(projectDir) {
+        include '**/*.properties'
+        exclude projectCopyExcludes
+    }
+    inputs.files(propertiesFiles)
+    outputs.dir layout.buildDirectory.dir('native2ascii')
+    doLast {
+        def outputDir = layout.buildDirectory.dir('native2ascii').get().asFile
+        outputDir.mkdirs()
+        propertiesFiles.files.each { source ->
+            def target = new File(outputDir, projectDir.toPath().relativize(source.toPath()).toString())
+            target.parentFile.mkdirs()
+            def properties = new Properties()
+            source.withReader('UTF-8') { reader ->
+                properties.load(reader)
+            }
+            target.withWriter('ISO-8859-1') { writer ->
+                properties.store(writer, null)
+            }
+        }
+        println "Converted ${propertiesFiles.files.size()} properties file(s)."
+    }
+}
+
+tasks.register('scp') {
+    group = 'distribution'
+    description = 'Copies backend WAR with scp when scpHost, scpUser and scpPath are provided.'
+    dependsOn ":${backendDir}:war"
+    doLast {
+        def host = scpHost
+        def user = scpUser
+        def targetPath = scpPath
+        def identity = scpIdentity
+
+        if (!host || !user || !targetPath) {
+            println 'SCP skipped. Set -PscpHost=... -PscpUser=... -PscpPath=...'
+            return
+        }
+
+        def command = ['scp']
+        if (identity) {
+            command.addAll(['-i', identity.toString()])
+        }
+        command.addAll([
+                project(":${backendDir}").tasks.named('war').get().archiveFile.get().asFile.absolutePath,
+                "${user}@${host}:${targetPath}".toString()
+        ])
+        def output = runCommand(command)
+        if (output.trim()) {
+            println output
+        }
+    }
+}
+
+def docManifestDir = layout.buildDirectory.dir('generated/doc-manifest')
+
+tasks.register('generateDocManifest') {
+    group = 'documentation'
+    description = 'Generates documentation manifest and project checksums.'
+    def projectFiles = fileTree(projectDir) {
+        include '**/*'
+        exclude projectCopyExcludes
+    }
+    inputs.files(projectFiles)
+    outputs.dir docManifestDir
+    doLast {
+        def outputDir = docManifestDir.get().asFile
+        def manifestFile = new File(outputDir, 'META-INF/MANIFEST.MF')
+        def checksumsFile = new File(outputDir, 'checksums.txt')
+        manifestFile.parentFile.mkdirs()
+
+        manifestFile.text = [
+                'Manifest-Version: 1.0',
+                "Implementation-Title: ${appName}",
+                "Implementation-Version: ${appVersion}",
+                "Created-By: Gradle ${gradle.gradleVersion}",
+                ''
+        ].join(System.lineSeparator())
+
+        def files = projectFiles.files.findAll { it.isFile() }.sort { left, right ->
+            projectDir.toPath().relativize(left.toPath()).toString() <=> projectDir.toPath().relativize(right.toPath()).toString()
+        }
+        checksumsFile.parentFile.mkdirs()
+        checksumsFile.text = files.collect { file ->
+            def relativePath = projectDir.toPath().relativize(file.toPath()).toString()
+            "${relativePath} MD5=${fileDigest(file, 'MD5')} SHA-1=${fileDigest(file, 'SHA-1')}"
+        }.join(System.lineSeparator()) + System.lineSeparator()
+    }
+}
+
+tasks.register('doc', Zip) {
+    group = 'documentation'
+    description = 'Builds documentation archive with Javadoc, manifest and checksums.'
+    dependsOn ":${backendDir}:javadoc", tasks.named('generateDocManifest')
+    archiveBaseName = "${appName}-doc"
+    archiveVersion = ''
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    from(project(":${backendDir}").layout.buildDirectory.dir('docs/javadoc')) {
+        into 'javadoc'
+    }
+    from(docManifestDir)
+}
+
+def altProjectDir = layout.buildDirectory.dir('alt/project')
+
+tasks.register('prepareAlt') {
+    group = 'distribution'
+    description = 'Creates alternate source copy with renamed classes.'
+    def sourceFiles = fileTree(projectDir) {
+        include '**/*'
+        exclude projectCopyExcludes
+    }
+    inputs.files(sourceFiles)
+    outputs.dir altProjectDir
+    doLast {
+        def targetDir = altProjectDir.get().asFile
+        copyCleanProjectTo(targetDir)
+
+        def replacements = [
+                (altClassFrom): altClassTo,
+                (altUserServiceFrom): altUserServiceTo
+        ]
+        def mainJavaDir = new File(targetDir, "${backendDir}/src/main/java")
+        fileTree(mainJavaDir) {
+            include '**/*.java'
+        }.files.each { source ->
+            def text = source.getText('UTF-8')
+            replacements.each { from, to ->
+                text = text.replace(from.toString(), to.toString())
+            }
+            source.write(text, 'UTF-8')
+        }
+        replacements.each { from, to ->
+            fileTree(mainJavaDir) {
+                include "**/${from}.java"
+            }.files.each { source ->
+                source.renameTo(new File(source.parentFile, "${to}.java"))
+            }
+        }
+        writeText(new File(targetDir, 'ALT-README.txt'), [
+                "Alternative archive for ${appName}",
+                "${altClassFrom} -> ${altClassTo}",
+                "${altUserServiceFrom} -> ${altUserServiceTo}",
+                ''
+        ].join(System.lineSeparator()))
+    }
+}
+
+tasks.register('alt', Zip) {
+    group = 'distribution'
+    description = 'Builds alternate project archive.'
+    dependsOn tasks.named('prepareAlt')
+    archiveBaseName = "${appName}-alt"
+    archiveVersion = ''
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    from(altProjectDir)
+}
+
+def historyOutputDir = layout.buildDirectory.dir('history')
+
+tasks.register('history') {
+    group = 'versioning'
+    description = 'Checks recent Git revisions and writes build history report.'
+    outputs.dir historyOutputDir
+    doLast {
+        def outputDir = historyOutputDir.get().asFile
+        delete outputDir
+        outputDir.mkdirs()
+        def worktreesDir = new File(outputDir, 'worktrees')
+        worktreesDir.mkdirs()
+        def revisions = gitRevisions(['--format=%H', '-n', historyRevisionCount.toString()])
+        def report = []
+        def firstWorking = null
+        def firstBroken = null
+
+        revisions.eachWithIndex { revision, index ->
+            def shortRevision = revision.take(8)
+            def worktreeDir = new File(worktreesDir, "${index}-${shortRevision}")
+            def addResult = runCommandResult(['git', 'worktree', 'add', '--detach', worktreeDir.absolutePath, revision])
+            if (addResult.exitCode != 0) {
+                report << "${shortRevision} WORKTREE_FAILED"
+                writeText(new File(outputDir, "revision-${index}-${shortRevision}.log"), addResult.output)
+                return
+            }
+            try {
+                def result = runRevisionBuild(worktreeDir, ['compile', 'test'])
+                writeText(new File(outputDir, "revision-${index}-${shortRevision}.log"), result.output)
+                if (result.exitCode == 0) {
+                    report << "${shortRevision} OK"
+                    if (firstWorking == null) {
+                        firstWorking = revision
+                    }
+                } else {
+                    report << "${shortRevision} FAILED"
+                    if (firstBroken == null) {
+                        firstBroken = revision
+                    }
+                }
+            } finally {
+                removeWorktree(worktreeDir)
+            }
+        }
+
+        if (firstWorking != null && firstBroken != null) {
+            def diffResult = runCommandResult(['git', 'diff', "${firstWorking}..${firstBroken}"])
+            writeText(new File(outputDir, 'diff-working-broken.patch'), diffResult.output)
+        }
+        writeText(new File(outputDir, 'history.txt'), report.join(System.lineSeparator()) + System.lineSeparator())
+        println "History report saved to ${new File(outputDir, 'history.txt')}"
+    }
+}
+
+def diffOutputDir = layout.buildDirectory.dir('reports/diff')
+
+tasks.register('diff') {
+    group = 'versioning'
+    description = 'Checks working copy, saves diff and optionally commits class changes.'
+    outputs.dir diffOutputDir
+    doLast {
+        def outputDir = diffOutputDir.get().asFile
+        delete outputDir
+        outputDir.mkdirs()
+
+        def status = runCommand(['git', 'status', '--short'])
+        def fullDiff = runCommand(['git', 'diff'])
+        writeText(new File(outputDir, 'working-copy-status.txt'), status)
+        writeText(new File(outputDir, 'git-diff.patch'), fullDiff)
+
+        def classNames = [altClassFrom, altClassTo, altUserServiceFrom, altUserServiceTo].findAll { it }
+        def changedPaths = status.readLines().collect { changedPathFromStatusLine(it) }.findAll { it }
+        def classChanges = changedPaths.findAll { path ->
+            classNames.any { className -> path.endsWith("${className}.java") || path.contains("/${className}.java") }
+        }
+        writeText(new File(outputDir, 'class-changes.txt'), classChanges.join(System.lineSeparator()) + System.lineSeparator())
+
+        if (!classChanges) {
+            println 'Diff saved. No configured class changes found.'
+            return
+        }
+        if (!diffAutoCommit) {
+            println 'Diff saved. Auto commit skipped because diffAutoCommit=false.'
+            return
+        }
+
+        def addResult = runCommandResult(['git', 'add'] + classChanges)
+        if (addResult.exitCode != 0) {
+            println "Git add failed: ${addResult.output}"
+            return
+        }
+        def commitResult = runCommandResult(['git', 'commit', '-m', diffCommitMessage])
+        if (commitResult.exitCode != 0) {
+            println "Git commit skipped: ${commitResult.output}"
+            return
+        }
+        println commitResult.output
+    }
+}
+
+def junitReportDir = layout.buildDirectory.dir('reports/junit')
+
+tasks.register('report') {
+    group = 'verification'
+    description = 'Runs tests, saves JUnit XML reports and optionally commits them.'
+    dependsOn tasks.named('test')
+    outputs.dir junitReportDir
+    doLast {
+        def outputDir = junitReportDir.get().asFile
+        delete outputDir
+        copy {
+            from(project(":${backendDir}").layout.buildDirectory.dir('test-results/test'))
+            include '**/*.xml'
+            into outputDir
+        }
+        def xmlFiles = fileTree(outputDir) {
+            include '**/*.xml'
+        }.files
+        writeText(new File(outputDir, 'report-summary.txt'), "JUnit XML files: ${xmlFiles.size()}${System.lineSeparator()}")
+
+        if (!reportAutoCommit) {
+            println "JUnit report saved to ${outputDir}. Auto commit skipped because reportAutoCommit=false."
+            return
+        }
+        def addResult = runCommandResult(['git', 'add', '-f', outputDir.absolutePath])
+        if (addResult.exitCode != 0) {
+            println "Git add failed: ${addResult.output}"
+            return
+        }
+        def commitResult = runCommandResult(['git', 'commit', '-m', reportCommitMessage])
+        if (commitResult.exitCode != 0) {
+            println "Git commit skipped: ${commitResult.output}"
+            return
+        }
+        println commitResult.output
+    }
+}
+
+def teamOutputDir = layout.buildDirectory.dir('team')
+
+tasks.register('prepareTeam') {
+    group = 'distribution'
+    description = 'Builds previous Git revisions in temporary worktrees and collects reports.'
+    outputs.dir teamOutputDir
+    doLast {
+        def outputDir = teamOutputDir.get().asFile
+        delete outputDir
+        outputDir.mkdirs()
+        def worktreesDir = new File(outputDir, 'worktrees')
+        worktreesDir.mkdirs()
+        def reportsDir = new File(outputDir, 'reports')
+        def artifactsDir = new File(outputDir, 'artifacts')
+        reportsDir.mkdirs()
+        artifactsDir.mkdirs()
+        def revisions = gitRevisions(['--format=%H', '--skip=1', '-n', teamRevisionCount.toString()])
+        def summary = []
+
+        revisions.eachWithIndex { revision, index ->
+            def shortRevision = revision.take(8)
+            def worktreeDir = new File(worktreesDir, "${index}-${shortRevision}")
+            def addResult = runCommandResult(['git', 'worktree', 'add', '--detach', worktreeDir.absolutePath, revision])
+            if (addResult.exitCode != 0) {
+                summary << "${shortRevision} WORKTREE_FAILED"
+                writeText(new File(reportsDir, "${shortRevision}.log"), addResult.output)
+                return
+            }
+            try {
+                def result = runRevisionBuild(worktreeDir, ['build', '-x', 'functionalTest'])
+                writeText(new File(reportsDir, "${shortRevision}.log"), result.output)
+                if (result.exitCode == 0) {
+                    summary << "${shortRevision} OK"
+                    copy {
+                        includeEmptyDirs = false
+                        from(worktreeDir) {
+                            include '**/build/libs/*.jar'
+                            include '**/build/libs/*.war'
+                            include '**/target/*.jar'
+                            include '**/target/*.war'
+                        }
+                        into new File(artifactsDir, shortRevision)
+                    }
+                } else {
+                    summary << "${shortRevision} FAILED"
+                }
+            } finally {
+                removeWorktree(worktreeDir)
+            }
+        }
+        writeText(new File(outputDir, 'revisions.txt'), summary.join(System.lineSeparator()) + System.lineSeparator())
+    }
+}
+
+tasks.register('team', Zip) {
+    group = 'distribution'
+    description = 'Packages reports and artifacts for previous Git revisions.'
+    dependsOn tasks.named('prepareTeam')
+    archiveBaseName = "${appName}-team"
+    archiveVersion = ''
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    from(teamOutputDir) {
+        exclude 'worktrees/**'
+    }
+}
+
+def envOutputDir = layout.buildDirectory.dir('reports/env')
+
+tasks.register('env') {
+    group = 'help'
+    description = 'Runs environment check from gradle.properties and saves report.'
+    outputs.dir envOutputDir
+    doLast {
+        def outputDir = envOutputDir.get().asFile
+        delete outputDir
+        outputDir.mkdirs()
+        def requestedJavaVersions = envJavaVersions.split(',').collect { it.trim() }.findAll { it }
+        def checkTasks = envCheckTasks.split(',').collect { it.trim() }.findAll { it }
+        def currentJava = System.getProperty('java.version')
+        def report = []
+        report << "Java: ${currentJava}"
+        report << "Gradle: ${gradle.gradleVersion}"
+        report << "OS: ${System.getProperty('os.name')} ${System.getProperty('os.version')}"
+        report << "User: ${System.getProperty('user.name')}"
+        report << "Project: ${projectDir}"
+        report << "Requested Java versions: ${requestedJavaVersions.join(', ')}"
+        report << "JVM args: ${envJvmArgs}"
+        report << "Check tasks: ${checkTasks.join(', ')}"
+
+        if (!requestedJavaVersions.any { currentJava.startsWith(it) }) {
+            report << "WARN: requested Java versions are not active. Running checks with current Java."
+        }
+
+        def environment = [:]
+        if (envJvmArgs.trim()) {
+            environment['GRADLE_OPTS'] = envJvmArgs
+        }
+        def result = runCommandResultIn(projectDir, ['./gradlew'] + checkTasks + ['--no-daemon'], environment)
+        writeText(new File(outputDir, 'env-check.log'), result.output)
+        report << "Check command: ${result.command}"
+        report << "Check exit code: ${result.exitCode}"
+        writeText(new File(outputDir, 'env.txt'), report.join(System.lineSeparator()) + System.lineSeparator())
+        if (result.exitCode != 0) {
+            throw new RuntimeException("Environment check failed. See ${new File(outputDir, 'env-check.log')}")
+        }
+        println "Environment report saved to ${new File(outputDir, 'env.txt')}"
+    }
+}

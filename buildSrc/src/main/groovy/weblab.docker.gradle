@@ -1,0 +1,18 @@
+tasks.register('dockerBuild', Exec) {
+    group = 'docker'
+    description = 'Builds Docker images for all services.'
+    commandLine 'docker', 'compose', 'build'
+}
+
+tasks.register('dockerUp', Exec) {
+    group = 'docker'
+    description = 'Starts the application with Docker Compose.'
+    dependsOn tasks.named('dockerBuild')
+    commandLine 'docker', 'compose', 'up', '-d'
+}
+
+tasks.register('dockerDown', Exec) {
+    group = 'docker'
+    description = 'Stops Docker Compose services and removes volumes.'
+    commandLine 'docker', 'compose', 'down', '-v'
+}

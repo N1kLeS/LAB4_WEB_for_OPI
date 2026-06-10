@@ -35,7 +35,9 @@ class AreaCheckValidatorTest {
     }
 
     @Test
-    void rejectsRBelowMin() {
+    void rejectsRBelowMinAndNonPositive() {
+        assertFalse(AreaCheckValidator.isValidRange(0.0, 0.0, -1.0));
+        assertFalse(AreaCheckValidator.isValidRange(0.0, 0.0, 0.0));
         assertFalse(AreaCheckValidator.isValidRange(0.0, 0.0, 0.9));
     }
 
