@@ -93,6 +93,26 @@ build/distributions/WEBLAB333-doc.zip
 - `META-INF/MANIFEST.MF`
 - `checksums.txt` с MD5 и SHA-1 файлов проекта
 
+## Отправка WAR на сервер
+
+Параметры сервера задаются в `gradle.properties`:
+
+```properties
+scpHost=helios.cs.ifmo.ru
+scpPort=2222
+scpUser=s466495
+scpPath=~
+scpIdentity=
+```
+
+Запуск:
+
+```bash
+./gradlew scp
+```
+
+Пароль не хранится в проекте и вводится вручную в терминале при запросе `scp`.
+
 ## Gradle Tasks
 
 Основные задачи:
@@ -111,7 +131,7 @@ build/distributions/WEBLAB333-doc.zip
 - `xml` - проверка XML-файлов.
 - `music` - проигрывание звука после успешной сборки.
 - `native2ascii` - создание ASCII-копий `.properties`.
-- `scp` - отправка WAR по SCP при заполненных `scpHost`, `scpUser`, `scpPath`.
+- `scp` - отправка backend WAR на сервер по SCP.
 - `doc` - Javadoc, manifest, checksums и zip-архив.
 - `alt` - альтернативная копия проекта с заменами классов из `gradle.properties`.
 - `history` - проверка последних Git-ревизий во временных worktree.

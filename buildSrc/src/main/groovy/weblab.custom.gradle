@@ -5,6 +5,7 @@ def frontendDir = rootProject.ext.frontendDir
 def projectCopyExcludes = rootProject.ext.projectCopyExcludes
 def musicFile = rootProject.ext.musicFile
 def scpHost = rootProject.ext.scpHost
+def scpPort = rootProject.ext.scpPort
 def scpUser = rootProject.ext.scpUser
 def scpPath = rootProject.ext.scpPath
 def scpIdentity = rootProject.ext.scpIdentity
@@ -95,18 +96,24 @@ tasks.register('native2ascii') {
 }
 
 tasks.register('scp') {
-    group = 'distribution'
-    description = 'Copies backend WAR with scp when scpHost, scpUser and scpPath are provided.'
+    group = 'deployment'
+    description = 'Copies backend WAR to remote server via SCP.'
     dependsOn ":${backendDir}:war"
     doLast {
         def host = scpHost
+        def port = scpPort ?: '22'
         def user = scpUser
-        def targetPath = scpPath
+        def remotePath = scpPath ?: '~'
         def identity = scpIdentity
 
-        if (!host || !user || !targetPath) {
-            println 'SCP skipped. Set -PscpHost=... -PscpUser=... -PscpPath=...'
+        if (!host || !user || !remotePath) {
+            logger.lifecycle('SCP parameters are not configured. Set scpHost, scpUser and scpPath in gradle.properties.')
             return
+        }
+
+        def warFile = project(":${backendDir}").tasks.named('war').get().archiveFile.get().asFile
+        if (!warFile.exists()) {
+            throw new RuntimeException("WAR file not found: ${warFile}")
         }
 
         def command = ['scp']
@@ -114,12 +121,17 @@ tasks.register('scp') {
             command.addAll(['-i', identity.toString()])
         }
         command.addAll([
-                project(":${backendDir}").tasks.named('war').get().archiveFile.get().asFile.absolutePath,
-                "${user}@${host}:${targetPath}".toString()
+                '-P',
+                port.toString(),
+                warFile.absolutePath,
+                "${user}@${host}:${remotePath}".toString()
         ])
-        def output = runCommand(command)
-        if (output.trim()) {
-            println output
+
+        logger.lifecycle("Uploading WAR via SCP: ${warFile.name} -> ${user}@${host}:${remotePath}")
+        logger.lifecycle("SCP command: ${command.join(' ')}")
+
+        exec {
+            commandLine command
         }
     }
 }
