@@ -5,19 +5,19 @@
 ## Структура проекта
 
 - `backend` - Jakarta EE backend, REST API, Oracle DB.
+- `backend/db-init` - SQL-инициализация базы данных для Docker.
 - `frontend` - frontend-приложение.
-- `functional-tests` - Playwright-тесты.
-- `docs/test-cases.md` - 15 тест-кейсов.
-- `assets/sounds` - звук для Gradle task `music`.
-- `gradle.properties` - параметры сборки и лабораторных задач.
-- `docker-compose.yml` - запуск DB, backend и frontend.
+- `functional-tests` - Playwright e2e-тесты.
+- `docs/test-cases.md` - 15 ручных тест-кейсов.
+- `assets/sounds` - звук для Gradle-задачи `music`.
+- `buildSrc` - Gradle convention scripts и задачи.
+- `gradle/wrapper` - Gradle Wrapper для запуска через `./gradlew`.
+- `gradle.properties` - параметры сборки, Docker-задач, `scp`, `team`, `env`.
+- `docker-compose.yml` - запуск DB, backend, frontend и профиля `functional-tests`.
+- `settings.gradle` - список Gradle-модулей.
 - `build.gradle` - корневой Gradle-сценарий.
 
-## Требования
-
-- Java 17+
-- Docker
-- Node.js и npm
+## INFO
 
 Gradle Wrapper включён в проект, поэтому команды запускаются через `./gradlew`.
 
@@ -49,7 +49,7 @@ Gradle Wrapper включён в проект, поэтому команды з�
 ./gradlew dockerUp --no-daemon
 ```
 
-Остановить приложение и удалить volume базы:
+Остановить приложение и удалить:
 
 ```bash
 ./gradlew dockerDown --no-daemon
@@ -60,6 +60,32 @@ Gradle Wrapper включён в проект, поэтому команды з�
 - frontend: `http://localhost:3000`
 - backend: `http://localhost:8080`
 - Oracle DB: `localhost:1521`
+
+## Docker-задачи
+
+Сборка проекта внутри контейнера:
+
+```bash
+./gradlew dockerBuildInContainer
+```
+
+Unit-тесты внутри контейнера:
+
+```bash
+./gradlew dockerTest
+```
+
+Функциональные тесты в контейнеризированном окружении:
+
+```bash
+./gradlew dockerFunctionalTest
+```
+
+Сборка нескольких ревизий проекта в Docker:
+
+```bash
+./gradlew dockerTeam
+```
 
 ## Unit Tests
 
@@ -75,44 +101,6 @@ Gradle Wrapper включён в проект, поэтому команды з�
 
 Задача `functionalTest` собирает Docker-образы, поднимает окружение, ждёт frontend/backend, выполняет `npm ci`, устанавливает Chromium через Playwright, запускает 15 e2e-тестов и завершает окружение через `docker compose down -v`.
 
-## Документация
-
-```bash
-./gradlew doc --no-daemon
-```
-
-Результат:
-
-```text
-build/distributions/WEBLAB333-doc.zip
-```
-
-В архив входят:
-
-- `javadoc/`
-- `META-INF/MANIFEST.MF`
-- `checksums.txt` с MD5 и SHA-1 файлов проекта
-
-## Отправка WAR на сервер
-
-Параметры сервера задаются в `gradle.properties`:
-
-```properties
-scpHost=helios.cs.ifmo.ru
-scpPort=2222
-scpUser=s466495
-scpPath=~
-scpIdentity=
-```
-
-Запуск:
-
-```bash
-./gradlew scp
-```
-
-Пароль не хранится в проекте и вводится вручную в терминале при запросе `scp`.
-
 ## Gradle Tasks
 
 Основные задачи:
@@ -125,8 +113,6 @@ scpIdentity=
 - `dockerBuild` - сборка Docker-образов.
 - `dockerUp` - запуск Docker Compose.
 - `dockerDown` - остановка Docker Compose с удалением volume.
-
-Задачи по варианту:
 
 - `xml` - проверка XML-файлов.
 - `music` - проигрывание звука после успешной сборки.
@@ -144,4 +130,14 @@ scpIdentity=
 
 ```bash
 ./gradlew tasks --all --no-daemon
+```
+
+## Базовый запуск проекта
+ON
+```bash
+docker compose up -d --build
+```
+OFF
+```bash
+docker compose down
 ```

@@ -1,3 +1,38 @@
+def appName = rootProject.ext.appName
+def frontendUrl = rootProject.ext.frontendUrl
+def backendHealthUrl = rootProject.ext.backendHealthUrl
+def dockerGradleImage = rootProject.ext.dockerGradleImage
+def dockerPlaywrightImage = rootProject.ext.dockerPlaywrightImage
+def dockerWorkspace = rootProject.ext.dockerWorkspace
+def dockerTeamRevisionCount = rootProject.ext.dockerTeamRevisionCount
+def dockerContainerBuildTasks = rootProject.ext.dockerContainerBuildTasks
+def dockerContainerTestTasks = rootProject.ext.dockerContainerTestTasks
+def dockerContainerTeamTasks = rootProject.ext.dockerContainerTeamTasks
+def gitRevisions = rootProject.ext.gitRevisions
+def runCommandResult = rootProject.ext.runCommandResult
+def runCommandResultIn = rootProject.ext.runCommandResultIn
+def removeWorktree = rootProject.ext.removeWorktree
+def writeText = rootProject.ext.writeText
+def waitForHttp = rootProject.ext.waitForHttp
+
+def taskArgs = { String value ->
+    value.split(/\s+/).collect { it.trim() }.findAll { it }
+}
+
+def gradleCommandFor = { File directory ->
+    new File(directory, 'gradlew').exists() ? './gradlew' : 'gradle'
+}
+
+def dockerGradleCommand = { File directory, List args ->
+    [
+            'docker', 'run', '--rm',
+            '-v', "${directory.absolutePath}:${dockerWorkspace}".toString(),
+            '-w', dockerWorkspace.toString(),
+            dockerGradleImage.toString(),
+            gradleCommandFor(directory)
+    ] + args + ['--no-daemon']
+}
+
 tasks.register('dockerBuild', Exec) {
     group = 'docker'
     description = 'Builds Docker images for all services.'
@@ -15,4 +50,119 @@ tasks.register('dockerDown', Exec) {
     group = 'docker'
     description = 'Stops Docker Compose services and removes volumes.'
     commandLine 'docker', 'compose', 'down', '-v'
+}
+
+tasks.register('dockerBuildInContainer', Exec) {
+    group = 'docker'
+    description = 'Builds the project inside a Docker Gradle/JDK container.'
+    commandLine dockerGradleCommand(rootDir, taskArgs(dockerContainerBuildTasks))
+}
+
+tasks.register('dockerTest', Exec) {
+    group = 'docker'
+    description = 'Runs unit tests inside a Docker Gradle/JDK container.'
+    commandLine dockerGradleCommand(rootDir, taskArgs(dockerContainerTestTasks))
+}
+
+tasks.register('dockerFunctionalTest') {
+    group = 'docker'
+    description = 'Runs Playwright functional tests inside Docker Compose network.'
+    doLast {
+        def composeEnvironment = ['DOCKER_PLAYWRIGHT_IMAGE': dockerPlaywrightImage.toString()]
+        try {
+            exec {
+                environment composeEnvironment
+                commandLine 'docker', 'compose', 'up', '-d', '--build', 'db', 'backend', 'frontend'
+            }
+            waitForHttp(frontendUrl, [200])
+            waitForHttp(backendHealthUrl, [401])
+            exec {
+                environment composeEnvironment
+                commandLine 'docker', 'compose', '--profile', 'test', 'run', '--rm', 'functional-tests'
+            }
+        } finally {
+            exec {
+                environment composeEnvironment
+                commandLine 'docker', 'compose', 'down', '-v'
+            }
+        }
+    }
+}
+
+def dockerTeamOutputDir = layout.buildDirectory.dir('docker-team')
+
+tasks.register('prepareDockerTeam') {
+    group = 'docker'
+    description = 'Builds previous Git revisions in one Docker Gradle/JDK environment.'
+    outputs.dir dockerTeamOutputDir
+    doLast {
+        if (!new File(rootDir, '.git').exists()) {
+            logger.lifecycle('dockerTeam requires a git repository. Skipping.')
+            return
+        }
+
+        def outputDir = dockerTeamOutputDir.get().asFile
+        delete outputDir
+        outputDir.mkdirs()
+        def worktreesDir = new File(outputDir, 'worktrees')
+        def reportsDir = new File(outputDir, 'reports')
+        def artifactsDir = new File(outputDir, 'artifacts')
+        worktreesDir.mkdirs()
+        reportsDir.mkdirs()
+        artifactsDir.mkdirs()
+
+        def revisions = gitRevisions(['--format=%H', '--skip=1', '-n', dockerTeamRevisionCount.toString()])
+        def summary = []
+        def teamArgs = taskArgs(dockerContainerTeamTasks)
+
+        revisions.eachWithIndex { revision, index ->
+            def shortRevision = revision.take(8)
+            def worktreeDir = new File(worktreesDir, "${index}-${shortRevision}")
+            def addResult = runCommandResult(['git', 'worktree', 'add', '--detach', worktreeDir.absolutePath, revision])
+            if (addResult.exitCode != 0) {
+                summary << "${shortRevision} WORKTREE_FAILED"
+                writeText(new File(reportsDir, "${shortRevision}.log"), addResult.output)
+                return
+            }
+
+            try {
+                def command = dockerGradleCommand(worktreeDir, teamArgs)
+                def result = runCommandResultIn(rootDir, command)
+                writeText(new File(reportsDir, "${shortRevision}.log"), result.output)
+                writeText(new File(reportsDir, "${shortRevision}.command.txt"), result.command + System.lineSeparator())
+
+                if (result.exitCode == 0) {
+                    summary << "${shortRevision} OK"
+                    copy {
+                        includeEmptyDirs = false
+                        from(worktreeDir) {
+                            include '**/build/libs/*.jar'
+                            include '**/build/libs/*.war'
+                            include '**/target/*.jar'
+                            include '**/target/*.war'
+                        }
+                        into new File(artifactsDir, shortRevision)
+                    }
+                } else {
+                    summary << "${shortRevision} FAILED"
+                }
+            } finally {
+                removeWorktree(worktreeDir)
+            }
+        }
+
+        writeText(new File(outputDir, 'revisions.txt'), summary.join(System.lineSeparator()) + System.lineSeparator())
+    }
+}
+
+tasks.register('dockerTeam', Zip) {
+    group = 'docker'
+    description = 'Packages Docker build reports and artifacts for previous Git revisions.'
+    dependsOn tasks.named('prepareDockerTeam')
+    archiveBaseName = "${appName}-docker-team"
+    archiveVersion = ''
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    from(dockerTeamOutputDir) {
+        exclude 'worktrees/**'
+    }
 }

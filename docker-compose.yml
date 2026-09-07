@@ -36,5 +36,18 @@ services:
     depends_on:
       - backend
 
+  functional-tests:
+    image: ${DOCKER_PLAYWRIGHT_IMAGE:-mcr.microsoft.com/playwright:v1.60.0-noble}
+    working_dir: /tests
+    volumes:
+      - ./functional-tests:/tests
+    environment:
+      - BASE_URL=http://frontend:3000
+    depends_on:
+      - frontend
+    command: sh -c "npm ci && npx playwright test"
+    profiles:
+      - test
+
 volumes:
   oracle-data:
