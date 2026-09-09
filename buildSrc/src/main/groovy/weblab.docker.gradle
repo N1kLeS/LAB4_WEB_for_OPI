@@ -35,38 +35,38 @@ def dockerGradleCommand = { File directory, List args ->
 
 tasks.register('dockerBuild', Exec) {
     group = 'docker'
-    description = 'Builds Docker images for all services.'
+    description = 'Собирает Docker-образы всех сервисов.'
     commandLine 'docker', 'compose', 'build'
 }
 
 tasks.register('dockerUp', Exec) {
     group = 'docker'
-    description = 'Starts the application with Docker Compose.'
+    description = 'Запускает приложение через Docker Compose.'
     dependsOn tasks.named('dockerBuild')
     commandLine 'docker', 'compose', 'up', '-d'
 }
 
 tasks.register('dockerDown', Exec) {
     group = 'docker'
-    description = 'Stops Docker Compose services and removes volumes.'
+    description = 'Останавливает сервисы Docker Compose и удаляет тома данных.'
     commandLine 'docker', 'compose', 'down', '-v'
 }
 
 tasks.register('dockerBuildInContainer', Exec) {
     group = 'docker'
-    description = 'Builds the project inside a Docker Gradle/JDK container.'
+    description = 'Собирает проект в Docker-контейнере с Gradle и JDK.'
     commandLine dockerGradleCommand(rootDir, taskArgs(dockerContainerBuildTasks))
 }
 
 tasks.register('dockerTest', Exec) {
     group = 'docker'
-    description = 'Runs unit tests inside a Docker Gradle/JDK container.'
+    description = 'Запускает модульные тесты в Docker-контейнере с Gradle и JDK.'
     commandLine dockerGradleCommand(rootDir, taskArgs(dockerContainerTestTasks))
 }
 
 tasks.register('dockerFunctionalTest') {
     group = 'docker'
-    description = 'Runs Playwright functional tests inside Docker Compose network.'
+    description = 'Запускает функциональные тесты Playwright внутри сети Docker Compose.'
     doLast {
         def composeEnvironment = ['DOCKER_PLAYWRIGHT_IMAGE': dockerPlaywrightImage.toString()]
         try {
@@ -93,7 +93,7 @@ def dockerTeamOutputDir = layout.buildDirectory.dir('docker-team')
 
 tasks.register('prepareDockerTeam') {
     group = 'docker'
-    description = 'Builds previous Git revisions in one Docker Gradle/JDK environment.'
+    description = 'Собирает предыдущие Git-ревизии в едином Docker-окружении с Gradle и JDK.'
     outputs.dir dockerTeamOutputDir
     doLast {
         if (!new File(rootDir, '.git').exists()) {
@@ -157,12 +157,74 @@ tasks.register('prepareDockerTeam') {
 
 tasks.register('dockerTeam', Zip) {
     group = 'docker'
-    description = 'Packages Docker build reports and artifacts for previous Git revisions.'
+    description = 'Архивирует отчёты и артефакты сборки предыдущих Git-ревизий в Docker.'
     dependsOn tasks.named('prepareDockerTeam')
     archiveBaseName = "${appName}-docker-team"
     archiveVersion = ''
     destinationDirectory = layout.buildDirectory.dir('distributions')
     from(dockerTeamOutputDir) {
         exclude 'worktrees/**'
+    }
+}
+
+tasks.register("dockerTestAfterUpDocker") {
+    group = 'docker'
+    description = 'Запускает модульные тесты в Docker-контейнере после поднятия сервисов.'
+    dependsOn tasks.named('dockerUp')
+    doLast {
+        exec {
+            commandLine dockerGradleCommand(rootDir, taskArgs(dockerContainerTestTasks))
+        }
+    }
+}
+
+tasks.register("dockerFunctionalTestAfterUpDocker") {
+    group = 'docker'
+    description = 'Запускает функциональные тесты Playwright внутри сети Docker Compose после поднятия сервисов.'
+    dependsOn tasks.named('dockerUp')
+    finalizedBy tasks.named('dockerDown')
+    doLast {
+        def composeEnvironment = ['DOCKER_PLAYWRIGHT_IMAGE': dockerPlaywrightImage.toString()]
+        waitForHttp(frontendUrl, [200])
+        waitForHttp(backendHealthUrl, [401])
+        exec {
+            environment composeEnvironment
+            commandLine 'docker', 'compose', '--profile', 'test', 'run', '--rm', 'functional-tests'
+        }
+    }
+}
+
+tasks.register("dockerTestAndFunctionalTestAfterUpDocker") {
+    group = 'docker'
+    description = 'Поднимает Docker Compose и запускает модульные и функциональные тесты.'
+    doLast {
+        def composeEnvironment = ['DOCKER_PLAYWRIGHT_IMAGE': dockerPlaywrightImage.toString()]
+        try {
+            exec {
+                commandLine 'docker', 'compose', 'up', '-d', '--build'
+            }
+
+            waitForHttp(frontendUrl, [200])
+            waitForHttp(backendHealthUrl, [401])
+
+            exec {
+                commandLine 'docker', 'run', '--rm',
+                    '-v', "${rootDir.absolutePath}:${dockerWorkspace}".toString(),
+                    '-w', dockerWorkspace.toString(),
+                    dockerGradleImage.toString(),
+                    gradleCommandFor(rootDir),
+                    *taskArgs(dockerContainerTestTasks),
+                    '--no-daemon'
+            }
+
+            exec {
+                environment composeEnvironment
+                commandLine 'docker', 'compose', '--profile', 'test', 'run', '--rm', 'functional-tests'
+            }
+        } finally {
+            exec {
+                commandLine 'docker', 'compose', 'down', '-v'
+            }
+        }
     }
 }

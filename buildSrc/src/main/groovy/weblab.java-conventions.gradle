@@ -176,6 +176,54 @@ tasks.named('clean') {
 
 tasks.register('test') {
     group = 'verification'
-    description = 'Runs backend unit tests.'
+    description = 'Запускает модульные тесты серверной части.'
     dependsOn ":${rootProject.ext.backendDir}:test"
+}
+
+def taskDescriptions = [
+        assemble: 'Собирает артефакты проекта.',
+        build: 'Собирает проект и выполняет проверки.',
+        buildDependents: 'Собирает и тестирует проект и все зависящие от него проекты.',
+        buildNeeded: 'Собирает и тестирует проект и все проекты, от которых он зависит.',
+        classes: 'Компилирует основные классы и обрабатывает ресурсы.',
+        clean: 'Удаляет каталог сборки и настроенные временные файлы.',
+        jar: 'Создаёт JAR-архив с основными классами и ресурсами проекта.',
+        testClasses: 'Компилирует классы тестов и обрабатывает тестовые ресурсы.',
+        war: 'Создаёт WAR-архив с классами, веб-ресурсами и библиотеками приложения.',
+        init: 'Создаёт новый проект Gradle.',
+        updateDaemonJvm: 'Создаёт или обновляет требования к JVM для демона Gradle.',
+        wrapper: 'Создаёт файлы Gradle Wrapper.',
+        javadoc: 'Создаёт документацию Javadoc для основных Java-классов.',
+        buildEnvironment: 'Показывает зависимости сценария сборки проекта.',
+        dependencies: 'Показывает зависимости проекта.',
+        dependencyInsight: 'Показывает подробную информацию о выбранной зависимости.',
+        help: 'Показывает справку Gradle.',
+        javaToolchains: 'Показывает обнаруженные установки Java.',
+        outgoingVariants: 'Показывает варианты артефактов, предоставляемые проектом.',
+        projects: 'Показывает структуру проектов сборки.',
+        properties: 'Показывает свойства проекта.',
+        resolvableConfigurations: 'Показывает конфигурации, для которых можно получить зависимости.',
+        tasks: 'Показывает доступные задачи проекта.',
+        check: 'Выполняет все подключённые проверки проекта.',
+        test: 'Запускает модульные тесты серверной части.',
+        checkFrontend: 'Проверяет наличие необходимых файлов клиентской части.',
+        compileJava: 'Компилирует основной Java-код.',
+        compileTestJava: 'Компилирует Java-код тестов.',
+        components: 'Показывает компоненты проекта. Устаревшая задача.',
+        dependentComponents: 'Показывает компоненты, зависящие от компонентов проекта. Устаревшая задача.',
+        model: 'Показывает модель конфигурации проекта. Устаревшая задача.',
+        prepareKotlinBuildScriptModel: 'Подготавливает модель скриптов сборки Kotlin DSL для IDE.',
+        processResources: 'Обрабатывает основные ресурсы проекта.',
+        processTestResources: 'Обрабатывает ресурсы тестов.'
+]
+
+gradle.projectsEvaluated {
+    rootProject.allprojects.each { configuredProject ->
+        configuredProject.tasks.configureEach { task ->
+            def translatedDescription = taskDescriptions[task.name]
+            if (translatedDescription != null) {
+                task.description = translatedDescription
+            }
+        }
+    }
 }

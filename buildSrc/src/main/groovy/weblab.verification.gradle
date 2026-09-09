@@ -18,7 +18,7 @@ def installFunctionalTestDependencies = {
 
 tasks.register('functionalTestInstall') {
     group = 'verification'
-    description = 'Installs Playwright dependencies and Chromium browser.'
+    description = 'Устанавливает зависимости Playwright и браузер Chromium.'
     inputs.files(
             file("${functionalTestsPath}/package.json"),
             file("${functionalTestsPath}/package-lock.json")
@@ -32,7 +32,7 @@ tasks.register('functionalTestInstall') {
 
 def functionalTestTask = tasks.register('functionalTest') {
     group = 'verification'
-    description = 'Runs Playwright functional tests against Docker Compose application.'
+    description = 'Запускает функциональные тесты Playwright для приложения в Docker Compose.'
     inputs.files(
             file("${functionalTestsPath}/package.json"),
             file("${functionalTestsPath}/package-lock.json"),

@@ -35,13 +35,13 @@ def fileDigest = rootProject.ext.fileDigest
 
 tasks.register('compile') {
     group = 'build'
-    description = 'Compiles backend sources and checks frontend sources.'
+    description = 'Компилирует серверную часть и проверяет наличие файлов клиентской части.'
     dependsOn ":${backendDir}:classes", ":${frontendDir}:checkFrontend"
 }
 
 tasks.register('xml') {
     group = 'verification'
-    description = 'Validates XML files in the project.'
+    description = 'Проверяет XML-файлы проекта.'
     def xmlFiles = fileTree(projectDir) {
         include '**/*.xml'
         exclude projectCopyExcludes
@@ -60,7 +60,7 @@ tasks.register('xml') {
 
 tasks.register('music', Exec) {
     group = 'lab'
-    description = 'Plays a sound after build.'
+    description = 'Воспроизводит звук после сборки.'
     dependsOn tasks.named('build')
     onlyIf {
         musicFile.exists() && System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('mac')
@@ -70,7 +70,7 @@ tasks.register('music', Exec) {
 
 tasks.register('native2ascii') {
     group = 'conversion'
-    description = 'Converts properties files to ASCII copies.'
+    description = 'Преобразует файлы .properties в ASCII-копии.'
     def propertiesFiles = fileTree(projectDir) {
         include '**/*.properties'
         exclude projectCopyExcludes
@@ -97,7 +97,7 @@ tasks.register('native2ascii') {
 
 tasks.register('scp') {
     group = 'deployment'
-    description = 'Copies backend WAR to remote server via SCP.'
+    description = 'Копирует WAR-архив серверной части на удалённый сервер по SCP.'
     dependsOn ":${backendDir}:war"
     doLast {
         def host = scpHost
@@ -140,7 +140,7 @@ def docManifestDir = layout.buildDirectory.dir('generated/doc-manifest')
 
 tasks.register('generateDocManifest') {
     group = 'documentation'
-    description = 'Generates documentation manifest and project checksums.'
+    description = 'Создаёт манифест документации и контрольные суммы файлов проекта.'
     def projectFiles = fileTree(projectDir) {
         include '**/*'
         exclude projectCopyExcludes
@@ -174,7 +174,7 @@ tasks.register('generateDocManifest') {
 
 tasks.register('doc', Zip) {
     group = 'documentation'
-    description = 'Builds documentation archive with Javadoc, manifest and checksums.'
+    description = 'Создаёт архив документации с Javadoc, манифестом и контрольными суммами.'
     dependsOn ":${backendDir}:javadoc", tasks.named('generateDocManifest')
     archiveBaseName = "${appName}-doc"
     archiveVersion = ''
@@ -189,7 +189,7 @@ def altProjectDir = layout.buildDirectory.dir('alt/project')
 
 tasks.register('prepareAlt') {
     group = 'distribution'
-    description = 'Creates alternate source copy with renamed classes.'
+    description = 'Создаёт альтернативную копию исходников с переименованными классами.'
     def sourceFiles = fileTree(projectDir) {
         include '**/*'
         exclude projectCopyExcludes
@@ -232,7 +232,7 @@ tasks.register('prepareAlt') {
 
 tasks.register('alt', Zip) {
     group = 'distribution'
-    description = 'Builds alternate project archive.'
+    description = 'Создаёт архив альтернативной версии проекта.'
     dependsOn tasks.named('prepareAlt')
     archiveBaseName = "${appName}-alt"
     archiveVersion = ''
@@ -244,7 +244,7 @@ def historyOutputDir = layout.buildDirectory.dir('history')
 
 tasks.register('history') {
     group = 'versioning'
-    description = 'Checks recent Git revisions and writes build history report.'
+    description = 'Проверяет последние Git-ревизии и сохраняет отчёт об истории сборок.'
     outputs.dir historyOutputDir
     doLast {
         def outputDir = historyOutputDir.get().asFile
@@ -298,7 +298,7 @@ def diffOutputDir = layout.buildDirectory.dir('reports/diff')
 
 tasks.register('diff') {
     group = 'versioning'
-    description = 'Checks working copy, saves diff and optionally commits class changes.'
+    description = 'Проверяет рабочую копию, сохраняет различия и при включённой настройке коммитит изменения классов.'
     outputs.dir diffOutputDir
     doLast {
         def outputDir = diffOutputDir.get().asFile
@@ -344,7 +344,7 @@ def junitReportDir = layout.buildDirectory.dir('reports/junit')
 
 tasks.register('report') {
     group = 'verification'
-    description = 'Runs tests, saves JUnit XML reports and optionally commits them.'
+    description = 'Запускает тесты, сохраняет XML-отчёты JUnit и при включённой настройке коммитит их.'
     dependsOn tasks.named('test')
     outputs.dir junitReportDir
     doLast {
@@ -382,7 +382,7 @@ def teamOutputDir = layout.buildDirectory.dir('team')
 
 tasks.register('prepareTeam') {
     group = 'distribution'
-    description = 'Builds previous Git revisions in temporary worktrees and collects reports.'
+    description = 'Собирает предыдущие Git-ревизии во временных рабочих копиях и собирает отчёты.'
     outputs.dir teamOutputDir
     doLast {
         def outputDir = teamOutputDir.get().asFile
@@ -434,7 +434,7 @@ tasks.register('prepareTeam') {
 
 tasks.register('team', Zip) {
     group = 'distribution'
-    description = 'Packages reports and artifacts for previous Git revisions.'
+    description = 'Архивирует отчёты и артефакты предыдущих Git-ревизий.'
     dependsOn tasks.named('prepareTeam')
     archiveBaseName = "${appName}-team"
     archiveVersion = ''
@@ -448,7 +448,7 @@ def envOutputDir = layout.buildDirectory.dir('reports/env')
 
 tasks.register('env') {
     group = 'help'
-    description = 'Runs environment check from gradle.properties and saves report.'
+    description = 'Проверяет окружение по параметрам gradle.properties и сохраняет отчёт.'
     outputs.dir envOutputDir
     doLast {
         def outputDir = envOutputDir.get().asFile

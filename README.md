@@ -99,8 +99,6 @@ Unit-тесты внутри контейнера:
 ./gradlew functionalTest --no-daemon
 ```
 
-Задача `functionalTest` собирает Docker-образы, поднимает окружение, ждёт frontend/backend, выполняет `npm ci`, устанавливает Chromium через Playwright, запускает 15 e2e-тестов и завершает окружение через `docker compose down -v`.
-
 ## Gradle Tasks
 
 Основные задачи:

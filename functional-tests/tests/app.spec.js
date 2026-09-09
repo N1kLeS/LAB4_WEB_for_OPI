@@ -48,44 +48,44 @@ async function submitPoint(page, x, y, r) {
   await page.getByTestId('check-button').click();
 }
 
-test('01 opens login screen', async ({ page }) => {
+test('01 Открытие страницы входа', async ({ page }) => {
   await openApp(page);
   await expect(page.getByTestId('login-button')).toBeVisible();
   await expect(page.getByTestId('switch-to-register')).toBeVisible();
 });
 
-test('02 switches between login and registration', async ({ page }) => {
+test('02 Переключение между входом и регистрацией', async ({ page }) => {
   await openApp(page);
   await switchToRegister(page);
   await page.getByTestId('switch-to-login').click();
   await expect(page.getByTestId('login-button')).toBeVisible();
 });
 
-test('03 rejects empty registration request', async ({ page }) => {
+test('03 Ошибка при пустой регистрации', async ({ page }) => {
   await openApp(page);
   await switchToRegister(page);
   await page.getByTestId('register-button').click();
   await expect(page.getByTestId('auth-error')).toBeVisible();
 });
 
-test('04 registers new user', async ({ page }, testInfo) => {
+test('04 Регистрация нового пользователя', async ({ page }, testInfo) => {
   await registerUser(page, createCredentials(testInfo));
   await expect(page.getByTestId('area-canvas')).toBeVisible();
 });
 
-test('05 logs out after registration', async ({ page }, testInfo) => {
+test('05 Выход после регистрации', async ({ page }, testInfo) => {
   await registerUser(page, createCredentials(testInfo));
   await logout(page);
 });
 
-test('06 logs in with registered user', async ({ page }, testInfo) => {
+test('06 Вход зарегистрированного пользователя', async ({ page }, testInfo) => {
   const credentials = createCredentials(testInfo);
   await registerUser(page, credentials);
   await logout(page);
   await loginUser(page, credentials);
 });
 
-test('07 rejects login with wrong password', async ({ page }, testInfo) => {
+test('07 Ошибка входа с неверным паролем', async ({ page }, testInfo) => {
   const credentials = createCredentials(testInfo);
   await registerUser(page, credentials);
   await logout(page);
@@ -95,17 +95,17 @@ test('07 rejects login with wrong password', async ({ page }, testInfo) => {
   await expect(page.getByTestId('auth-error')).toBeVisible();
 });
 
-test('08 shows empty results for new user', async ({ page }, testInfo) => {
+test('08 Отсутствие результатов у нового пользователя', async ({ page }, testInfo) => {
   await registerUser(page, createCredentials(testInfo));
   await expect(page.getByTestId('results-table-empty')).toBeVisible();
 });
 
-test('09 keeps check button disabled before valid point', async ({ page }, testInfo) => {
+test('09 Кнопка проверки недоступна до ввода корректной точки', async ({ page }, testInfo) => {
   await registerUser(page, createCredentials(testInfo));
   await expect(page.getByTestId('check-button')).toBeDisabled();
 });
 
-test('10 enables check button after selecting valid point', async ({ page }, testInfo) => {
+test('10 Кнопка проверки доступна после ввода корректной точки', async ({ page }, testInfo) => {
   await registerUser(page, createCredentials(testInfo));
   await page.getByTestId('x-button-1').click();
   await page.getByTestId('y-input').fill('1');
@@ -113,7 +113,7 @@ test('10 enables check button after selecting valid point', async ({ page }, tes
   await expect(page.getByTestId('check-button')).toBeEnabled();
 });
 
-test('11 adds hit result to table', async ({ page }, testInfo) => {
+test('11 Добавление попадания в таблицу результатов', async ({ page }, testInfo) => {
   await registerUser(page, createCredentials(testInfo));
   await submitPoint(page, 1, 1, 2);
   const table = page.getByTestId('results-table');
@@ -122,7 +122,7 @@ test('11 adds hit result to table', async ({ page }, testInfo) => {
   await expect(table.locator('tbody tr').first()).toContainText('ПОПАДАНИЕ');
 });
 
-test('12 adds miss result to table', async ({ page }, testInfo) => {
+test('12 Добавление промаха в таблицу результатов', async ({ page }, testInfo) => {
   await registerUser(page, createCredentials(testInfo));
   await submitPoint(page, 5, 3, 1);
   const table = page.getByTestId('results-table');
@@ -131,7 +131,7 @@ test('12 adds miss result to table', async ({ page }, testInfo) => {
   await expect(table.locator('tbody tr').first()).toContainText('ПРОМАХ');
 });
 
-test('13 shows y validation error and keeps check disabled', async ({ page }, testInfo) => {
+test('13 Ошибка при недопустимом Y и блокировка кнопки проверки', async ({ page }, testInfo) => {
   await registerUser(page, createCredentials(testInfo));
   await page.getByTestId('x-button-1').click();
   await page.getByTestId('y-input').fill('4');
@@ -140,7 +140,7 @@ test('13 shows y validation error and keeps check disabled', async ({ page }, te
   await expect(page.getByTestId('check-button')).toBeDisabled();
 });
 
-test('14 adds result by canvas click', async ({ page }, testInfo) => {
+test('14 Добавление результата по клику на график', async ({ page }, testInfo) => {
   await registerUser(page, createCredentials(testInfo));
   const canvas = page.getByTestId('area-canvas');
   await expect(canvas).toBeVisible();
@@ -154,7 +154,7 @@ test('14 adds result by canvas click', async ({ page }, testInfo) => {
   await expect(page.getByTestId('results-table').locator('tbody tr')).toHaveCount(1);
 });
 
-test('15 keeps saved results after logout and login', async ({ page }, testInfo) => {
+test('15 Сохранение результатов после выхода и повторного входа', async ({ page }, testInfo) => {
   const credentials = createCredentials(testInfo);
   await registerUser(page, credentials);
   await submitPoint(page, 1, 1, 2);
